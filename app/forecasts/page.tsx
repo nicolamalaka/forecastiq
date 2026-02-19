@@ -26,8 +26,8 @@ function probColor(p: number) {
 }
 
 const DOMAIN_LABELS: Record<string, string> = {
-  POLITICS: '🗳️ Politics',
-  POLITICS_NATSEC: '🛡️ Nat Sec',
+  POLITICS: '🗳️ Political',
+  POLITICS_NATSEC: '🗳️ Political', // legacy label for old records
   SPORTS: '🏆 Sports',
 }
 
@@ -120,7 +120,7 @@ export default function ForecastsPage() {
             ))}
           </div>
           <div className="flex gap-1 bg-slate-900 border border-slate-800 rounded-lg p-1">
-            {(['all', 'POLITICS', 'POLITICS_NATSEC', 'SPORTS'] as const).map(d => (
+            {(['all', 'POLITICS', 'SPORTS'] as const).map(d => (
               <button key={d} onClick={() => setDomainFilter(d)}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${domainFilter === d ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}>
                 {d === 'all' ? 'All Domains' : DOMAIN_LABELS[d]}

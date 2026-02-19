@@ -4,19 +4,11 @@ import { searchNews, SearchResult } from './braveSearch'
 
 export const DEFAULT_WEIGHTS: Record<string, Record<string, number>> = {
   POLITICS: {
-    polling: 30,
-    economic: 20,
-    incumbency: 15,
-    fundraising: 10,
+    polling_sentiment: 20,
+    political_stability: 20,
+    geopolitical_external: 20,
+    economic_indicators: 15,
     expert_consensus: 15,
-    media_sentiment: 10,
-  },
-  POLITICS_NATSEC: {
-    geopolitical_pressure: 25,
-    regime_stability: 20,
-    military_posture: 20,
-    external_interference: 15,
-    economic_coercion: 10,
     media_narrative: 10,
   },
   SPORTS: {
@@ -68,36 +60,22 @@ export interface ForecastResult {
 
 const FACTOR_QUERIES: Record<string, Record<string, string[]>> = {
   POLITICS: {
-    polling: ['poll survey approval rating', 'polling data election'],
-    economic: ['economy GDP inflation unemployment growth'],
-    incumbency: ['incumbent advantage party history structural'],
-    fundraising: ['campaign fundraising donations ground game'],
-    expert_consensus: ['prediction market forecast expert analysis odds'],
-    media_sentiment: ['media coverage sentiment public opinion'],
-  },
-  POLITICS_NATSEC: {
-    geopolitical_pressure: ['international pressure sanctions diplomacy foreign policy'],
-    regime_stability: ['government stability protests opposition crisis leadership'],
-    military_posture: ['military armed forces security defense posture'],
-    external_interference: ['foreign interference actors proxy influence election'],
-    economic_coercion: ['economic sanctions trade pressure GDP coercion'],
-    media_narrative: ['media coverage propaganda information environment'],
+    polling_sentiment: ['poll survey approval rating public opinion', 'polling data election sentiment'],
+    political_stability: ['government stability opposition protests leadership crisis', 'regime incumbent party strength'],
+    geopolitical_external: ['international pressure sanctions foreign policy diplomacy', 'external actors interference proxy influence'],
+    economic_indicators: ['economy GDP inflation unemployment growth sanctions trade', 'economic coercion pressure aid conditionality'],
+    expert_consensus: ['prediction market forecast expert analysis odds analyst', 'think tank assessment intelligence forecast'],
+    media_narrative: ['media coverage narrative propaganda information environment', 'news sentiment framing public discourse'],
   },
 }
 
 const FACTOR_LABELS: Record<string, string> = {
-  polling: 'Polling Averages',
-  economic: 'Economic Indicators',
-  incumbency: 'Incumbency / Structural Advantage',
-  fundraising: 'Fundraising & Ground Game',
-  expert_consensus: 'Expert Consensus / Prediction Markets',
-  media_sentiment: 'Media Sentiment',
-  geopolitical_pressure: 'Geopolitical Pressure',
-  regime_stability: 'Regime Stability',
-  military_posture: 'Military Posture',
-  external_interference: 'External Interference',
-  economic_coercion: 'Economic Coercion',
-  media_narrative: 'Media Narrative',
+  polling_sentiment: 'Polling & Public Sentiment',
+  political_stability: 'Political Stability & Leadership',
+  geopolitical_external: 'Geopolitical & External Pressure',
+  economic_indicators: 'Economic Indicators & Coercion',
+  expert_consensus: 'Expert Consensus & Prediction Markets',
+  media_narrative: 'Media Narrative & Information Environment',
 }
 
 const POSITIVE_WORDS = ['win','lead','ahead','strong','likely','confident','surge','favor','advantage','growing','stable','secure','support','approval','boost','gain']
@@ -124,7 +102,7 @@ export async function* runForecast(
   yield { type: 'info', message: `Domain: ${preset} | News window: ${newsWindow} days` }
 
   const weights = { ...DEFAULT_WEIGHTS[preset] || DEFAULT_WEIGHTS.POLITICS, ...userWeights }
-  const queries = FACTOR_QUERIES[preset] || FACTOR_QUERIES.POLITICS
+  const queries = FACTOR_QUERIES['POLITICS']
   const factors: FactorResult[] = []
   let totalArticles = 0
 

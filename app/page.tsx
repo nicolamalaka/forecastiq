@@ -9,8 +9,7 @@ interface ForecastResult { prob: number; low: number; high: number; factors: Fac
 interface SavedForecast { id: string; question: string; domain: string; probability: number; outcome: number | null; brierScore: number | null; createdAt: string }
 
 const PRESETS = [
-  { id: 'POLITICS', label: '🗳️ Standard Politics', desc: 'Elections, policy, leadership' },
-  { id: 'POLITICS_NATSEC', label: '🛡️ Nat Sec Politics', desc: 'Small state security & statecraft' },
+  { id: 'POLITICS', label: '🗳️ Political Forecasts', desc: 'Elections, policy, national security & statecraft' },
   { id: 'SPORTS', label: '🏆 Sports', desc: 'Manual factor entry' },
 ]
 
@@ -130,7 +129,7 @@ export default function Home() {
     if (preset === 'SPORTS') {
       const prob = calcSports(sportsScores)
       const sportSteps: CalcStep[] = [
-        { type: 'info', message: 'Domain: SPORTS (manual factor entry)' },
+        { type: 'info', message: 'Domain: SPORTS — manual factor entry' },
         { type: 'weight', message: '\nApplying weights:' },
         ...SPORTS_FACTORS.map(f => ({
           type: 'weight' as const,
@@ -255,7 +254,7 @@ export default function Home() {
             <div className="mb-4">
               <label className="text-xs text-slate-500 mb-1.5 block">Forecast Question</label>
               <textarea value={question} onChange={e => setQuestion(e.target.value)}
-                placeholder={preset === 'SPORTS' ? 'e.g. Will Navy beat Lehigh on Feb 18?' : preset === 'POLITICS_NATSEC' ? 'e.g. Will Myanmar junta survive 2026?' : 'e.g. Will Modi call snap elections before Dec 2026?'}
+                placeholder={preset === 'SPORTS' ? 'e.g. Will Navy beat Lehigh on Feb 18?' : 'e.g. Will Modi call snap elections before Dec 2026? / Will North Korea test a nuclear device in 2026?'}
                 rows={3}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 resize-none"
               />

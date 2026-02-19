@@ -5,29 +5,16 @@ import Link from 'next/link'
 const DOMAINS = [
   {
     id: 'POLITICS',
-    label: '🗳️ Standard Politics',
+    label: '🗳️ Political Forecasts',
     factors: [
-      { id: 'polling', label: 'Polling Averages', desc: 'Poll data, approval ratings, survey results' },
-      { id: 'economic', label: 'Economic Indicators', desc: 'GDP, inflation, unemployment, growth' },
-      { id: 'incumbency', label: 'Incumbency / Structural Advantage', desc: 'Historical party/incumbent edge' },
-      { id: 'fundraising', label: 'Fundraising & Ground Game', desc: 'Campaign finance, organisation, mobilisation' },
-      { id: 'expert_consensus', label: 'Expert Consensus / Prediction Markets', desc: 'Analyst forecasts, prediction market odds' },
-      { id: 'media_sentiment', label: 'Media Sentiment', desc: 'Coverage tone, narrative momentum' },
+      { id: 'polling_sentiment', label: 'Polling & Public Sentiment', desc: 'Poll data, approval ratings, public opinion surveys' },
+      { id: 'political_stability', label: 'Political Stability & Leadership', desc: 'Government cohesion, opposition strength, incumbency, protests' },
+      { id: 'geopolitical_external', label: 'Geopolitical & External Pressure', desc: 'Foreign pressure, sanctions, proxy interference, diplomacy' },
+      { id: 'economic_indicators', label: 'Economic Indicators & Coercion', desc: 'GDP, inflation, unemployment, trade pressure, aid conditionality' },
+      { id: 'expert_consensus', label: 'Expert Consensus & Prediction Markets', desc: 'Analyst forecasts, think tank assessments, prediction market odds' },
+      { id: 'media_narrative', label: 'Media Narrative & Information Environment', desc: 'Coverage tone, propaganda, information operations, public discourse' },
     ],
-    defaults: { polling: 30, economic: 20, incumbency: 15, fundraising: 10, expert_consensus: 15, media_sentiment: 10 } as Record<string, number>,
-  },
-  {
-    id: 'POLITICS_NATSEC',
-    label: '🛡️ National Security Politics',
-    factors: [
-      { id: 'geopolitical_pressure', label: 'Geopolitical Pressure', desc: 'External state pressure, sanctions, diplomatic isolation' },
-      { id: 'regime_stability', label: 'Regime Stability', desc: 'Government cohesion, protests, opposition strength' },
-      { id: 'military_posture', label: 'Military Posture', desc: 'Armed forces loyalty, security sector alignment' },
-      { id: 'external_interference', label: 'External Interference', desc: 'Foreign actors, proxy influence, election meddling' },
-      { id: 'economic_coercion', label: 'Economic Coercion', desc: 'Trade pressure, aid conditionality, debt leverage' },
-      { id: 'media_narrative', label: 'Media Narrative', desc: 'Information environment, propaganda, public sentiment' },
-    ],
-    defaults: { geopolitical_pressure: 25, regime_stability: 20, military_posture: 20, external_interference: 15, economic_coercion: 10, media_narrative: 10 } as Record<string, number>,
+    defaults: { polling_sentiment: 20, political_stability: 20, geopolitical_external: 20, economic_indicators: 15, expert_consensus: 15, media_narrative: 10 } as Record<string, number>,
   },
   {
     id: 'SPORTS',
@@ -97,10 +84,8 @@ export default function WeightsPage() {
 
   // Sample calc preview using current weights
   const sampleScores: Record<string, number> = {
-    polling: 7.2, economic: 5.5, incumbency: 6.8, fundraising: 4.0,
-    expert_consensus: 6.5, media_sentiment: 5.8,
-    geopolitical_pressure: 7.0, regime_stability: 4.5, military_posture: 5.0,
-    external_interference: 6.0, economic_coercion: 5.5, media_narrative: 5.0,
+    polling_sentiment: 6.8, political_stability: 5.5, geopolitical_external: 7.0,
+    economic_indicators: 5.8, expert_consensus: 6.5, media_narrative: 5.2,
     recent_form: 7.0, head_to_head: 6.0, home_away: 7.0,
     player_availability: 8.0, offensive_efficiency: 6.5, defensive_efficiency: 5.5,
   }
@@ -139,6 +124,7 @@ export default function WeightsPage() {
               {d.label}
             </button>
           ))}
+          <div className="ml-auto text-xs text-slate-600 self-center">2 presets · weights must sum to 100%</div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
