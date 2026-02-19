@@ -3,7 +3,7 @@ import { runForecast, ForecastResult, DEFAULT_WEIGHTS } from '@/lib/weightCalcul
 import { prisma } from '@/lib/prisma'
 
 export async function POST(req: NextRequest) {
-  const { question, preset, newsWindow, userId, userWeights: providedWeights } = await req.json()
+  const { question, preset, newsWindow, userId, userWeights: providedWeights, baseRateMode, customClass, manualRate, manualSource } = await req.json()
 
   // Load saved user weights from DB and merge with defaults
   let userWeights: Record<string, number> = {}
@@ -29,7 +29,12 @@ export async function POST(req: NextRequest) {
       try {
         let finalData: ForecastResult | null = null
 
-        for await (const step of runForecast(question, preset || 'POLITICS', newsWindow || 14, userWeights || {})) {
+        for await (const step of runForecast(question, preset || 'POLITICS', newsWindow || 14, userWeights || {}, {
+          mode: baseRateMode || 'auto',
+          customClass: customClass || '',
+          manualRate: manualRate || 50,
+          manualSource: manualSource || '',
+        })) {
           send(step)
           if (step.type === 'final' && step.data) finalData = step.data as ForecastResult
         }

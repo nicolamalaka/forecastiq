@@ -91,11 +91,76 @@ function sentimentScore(texts: string[]): number {
   return Math.max(1, Math.min(10, 5 + sentiment))
 }
 
+export interface BaseRateOptions {
+  mode: 'auto' | 'custom-class' | 'full-manual'
+  customClass: string
+  manualRate: number
+  manualSource: string
+}
+
+async function fetchCustomBaseRate(
+  referenceClass: string,
+  newsWindow: number
+): Promise<{ rate: number; source: string; reasoning: string }> {
+  // Search for historical frequency of this reference class
+  const queries = [
+    `${referenceClass} historical frequency base rate percentage`,
+    `how often does "${referenceClass}" happen statistics`,
+    `${referenceClass} probability historical data`,
+  ]
+
+  let allResults: SearchResult[] = []
+  for (const q of queries) {
+    const r = await searchNews(q, Math.max(newsWindow, 90))
+    allResults = [...allResults, ...r]
+  }
+
+  const unique = allResults
+    .filter((r, i, a) => a.findIndex(x => x.url === r.url) === i)
+    .slice(0, 8)
+
+  if (unique.length === 0) {
+    return { rate: 0.45, source: 'No data found — using GJP generic baseline', reasoning: 'Could not find historical frequency data for this reference class. Defaulted to 45% generic baseline.' }
+  }
+
+  // Extract percentage mentions from snippets
+  const combined = unique.map(r => `${r.title} ${r.description}`).join(' ')
+  const percentages: number[] = []
+  const matches = combined.match(/(\d+(?:\.\d+)?)\s*(?:%|percent|per cent)/gi) || []
+  for (const m of matches) {
+    const val = parseFloat(m)
+    if (val > 0 && val < 100) percentages.push(val)
+  }
+
+  let rate = 0.45
+  let reasoning = 'Used generic 45% baseline — no clear percentage found in search results.'
+
+  if (percentages.length > 0) {
+    // Remove outliers, take median
+    const sorted = percentages.sort((a, b) => a - b)
+    const mid = Math.floor(sorted.length / 2)
+    const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]
+    rate = Math.max(0.01, Math.min(0.99, median / 100))
+    reasoning = `Found ${percentages.length} percentage references in ${unique.length} articles. Median: ${median.toFixed(1)}%.`
+  }
+
+  const topSources = unique.slice(0, 3).map(r => {
+    try { return new URL(r.url).hostname.replace('www.', '') } catch { return r.url }
+  }).join(', ')
+
+  return {
+    rate,
+    source: `Auto-searched from: ${topSources}`,
+    reasoning,
+  }
+}
+
 export async function* runForecast(
   question: string,
   preset: string,
   newsWindow: number,
-  userWeights: Record<string, number>
+  userWeights: Record<string, number>,
+  baseRateOptions?: BaseRateOptions
 ): AsyncGenerator<CalcStep> {
   yield { type: 'info', message: `Parsing question...` }
 
@@ -157,12 +222,72 @@ export async function* runForecast(
   }
 
   // ── Outside View ─────────────────────────────────────────────────────────
-  const baseRate = detectBaseRate(question, preset)
-  const outsideViewPct = baseRate.rate * 100
+  const mode = baseRateOptions?.mode || 'auto'
+  let baseRate: BaseRateEntry
+  let customReasoning = ''
 
   yield { type: 'blend', message: `\n── Outside View (Base Rate) ─────────────────` }
-  yield { type: 'blend', message: `Reference class: "${baseRate.label}"` }
-  yield { type: 'blend', message: `Dataset: ${baseRate.source}` }
+
+  if (mode === 'full-manual') {
+    // Mode 3: user provides everything
+    const rate = Math.max(0.01, Math.min(0.99, (baseRateOptions?.manualRate || 50) / 100))
+    baseRate = {
+      rate,
+      label: baseRateOptions?.customClass || 'User-defined reference class',
+      source: baseRateOptions?.manualSource || 'User-provided dataset',
+      dataset: {
+        description: `User-defined reference class: "${baseRateOptions?.customClass}". Base rate manually set to ${(rate * 100).toFixed(0)}%.`,
+        sampleSize: 'User-provided',
+        timePeriod: 'User-provided',
+        geographicScope: 'User-defined',
+        methodology: 'Base rate manually entered by the forecaster based on their own research or domain expertise.',
+        caveats: ['This base rate was manually entered — verify against academic datasets if possible.'],
+        keyStudies: [],
+        historicalExamples: [],
+      }
+    }
+    yield { type: 'blend', message: `Mode: FULL MANUAL (user-provided)` }
+    yield { type: 'blend', message: `Reference class: "${baseRate.label}"` }
+    yield { type: 'blend', message: `Source: ${baseRate.source}` }
+  } else if (mode === 'custom-class') {
+    // Mode 2: user provides class, app fetches rate
+    const className = baseRateOptions?.customClass || question
+    yield { type: 'blend', message: `Mode: CUSTOM CLASS — searching for historical frequency...` }
+    yield { type: 'search', message: `Searching: historical base rate for "${className}"...` }
+    const fetched = await fetchCustomBaseRate(className, newsWindow)
+    customReasoning = fetched.reasoning
+    baseRate = {
+      rate: fetched.rate,
+      label: className,
+      source: fetched.source,
+      dataset: {
+        description: `Custom reference class provided by forecaster: "${className}". Base rate estimated from web search.`,
+        sampleSize: 'Estimated from search results',
+        timePeriod: `Last ${newsWindow}–90 days`,
+        geographicScope: 'Web search results',
+        methodology: fetched.reasoning,
+        caveats: [
+          'Base rate was estimated by searching the web for historical frequency data.',
+          'Verify this estimate against authoritative datasets for high-stakes forecasts.',
+          'Auto-estimated rates carry more uncertainty than curated academic base rates.',
+        ],
+        keyStudies: [],
+        historicalExamples: [],
+      }
+    }
+    yield { type: 'blend', message: `Reference class: "${baseRate.label}"` }
+    yield { type: 'blend', message: `Estimated base rate: ${(baseRate.rate * 100).toFixed(1)}%` }
+    yield { type: 'blend', message: `Reasoning: ${customReasoning}` }
+    yield { type: 'blend', message: `Source: ${baseRate.source}` }
+  } else {
+    // Mode 1: fully automatic
+    baseRate = detectBaseRate(question, preset)
+    yield { type: 'blend', message: `Mode: AUTO — matched reference class from question` }
+    yield { type: 'blend', message: `Reference class: "${baseRate.label}"` }
+    yield { type: 'blend', message: `Dataset: ${baseRate.source}` }
+  }
+
+  const outsideViewPct = baseRate.rate * 100
   yield { type: 'blend', message: `Base rate: ${outsideViewPct.toFixed(1)}% → outside view score: ${outsideViewPct.toFixed(1)}% (× 1.0 = ${outsideViewPct.toFixed(2)})` }
 
   // ── Inside View — weighted factor scores ─────────────────────────────────

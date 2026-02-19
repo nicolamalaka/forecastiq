@@ -81,6 +81,11 @@ export default function Home() {
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [savedWeightsNote, setSavedWeightsNote] = useState<string | null>(null)
   const [datasetModal, setDatasetModal] = useState<DatasetInfo | null>(null)
+  // Base rate mode
+  const [baseRateMode, setBaseRateMode] = useState<'auto' | 'custom-class' | 'full-manual'>('auto')
+  const [customClass, setCustomClass] = useState('')
+  const [manualRate, setManualRate] = useState<number>(50)
+  const [manualSource, setManualSource] = useState('')
   const logRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -152,7 +157,13 @@ export default function Home() {
 
     const res = await fetch('/api/forecast', {
       method: 'POST',
-      body: JSON.stringify({ question, preset, newsWindow, userId, userWeights: {} }),
+      body: JSON.stringify({
+        question, preset, newsWindow, userId, userWeights: {},
+        baseRateMode,
+        customClass: baseRateMode !== 'auto' ? customClass : undefined,
+        manualRate: baseRateMode === 'full-manual' ? manualRate : undefined,
+        manualSource: baseRateMode === 'full-manual' ? manualSource : undefined,
+      }),
       headers: { 'Content-Type': 'application/json' },
     })
 
@@ -259,6 +270,68 @@ export default function Home() {
                       className="w-full accent-blue-500" />
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Base Rate Mode selector — politics only */}
+            {preset !== 'SPORTS' && (
+              <div className="mb-4">
+                <label className="text-xs text-slate-500 mb-2 block">Outside View (Base Rate)</label>
+                <div className="space-y-1.5">
+                  {[
+                    { id: 'auto', label: '🤖 Auto', desc: 'App detects reference class & fetches data' },
+                    { id: 'custom-class', label: '✏️ My Reference Class', desc: 'You name the class, app finds the rate' },
+                    { id: 'full-manual', label: '📊 Full Manual', desc: 'You provide both class and base rate %' },
+                  ].map(m => (
+                    <button key={m.id} onClick={() => setBaseRateMode(m.id as any)}
+                      className={`w-full text-left px-3 py-2 rounded-lg border transition text-xs ${baseRateMode === m.id ? 'border-cyan-600 bg-cyan-950/30 text-white' : 'border-slate-700/60 hover:border-slate-600 text-slate-400'}`}>
+                      <span className="font-medium">{m.label}</span>
+                      <span className="text-slate-500 ml-1.5">{m.desc}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom class input */}
+                {(baseRateMode === 'custom-class' || baseRateMode === 'full-manual') && (
+                  <div className="mt-3">
+                    <label className="text-xs text-slate-500 mb-1 block">Reference Class Name</label>
+                    <input
+                      value={customClass}
+                      onChange={e => setCustomClass(e.target.value)}
+                      placeholder="e.g. Small state leader survives no-confidence vote"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                    />
+                    <p className="text-xs text-slate-600 mt-1">
+                      {baseRateMode === 'custom-class'
+                        ? 'App will search for the historical frequency of this type of event.'
+                        : 'Describe the category of events you want to use as your baseline.'}
+                    </p>
+                  </div>
+                )}
+
+                {/* Full manual rate input */}
+                {baseRateMode === 'full-manual' && (
+                  <div className="mt-3 space-y-2">
+                    <div>
+                      <label className="text-xs text-slate-500 mb-1 block">
+                        Base Rate: <span className="text-white font-medium">{manualRate}%</span>
+                      </label>
+                      <input type="range" min={1} max={99} value={manualRate}
+                        onChange={e => setManualRate(Number(e.target.value))}
+                        className="w-full accent-cyan-500" />
+                      <div className="flex justify-between text-xs text-slate-600 mt-0.5"><span>1%</span><span>50%</span><span>99%</span></div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500 mb-1 block">Dataset / Source (optional)</label>
+                      <input
+                        value={manualSource}
+                        onChange={e => setManualSource(e.target.value)}
+                        placeholder="e.g. Powell & Thyne (2011); UCDP dataset"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
