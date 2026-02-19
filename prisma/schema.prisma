@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  createdAt DateTime @default(now())
+  forecasts Forecast[]
+  weights   UserWeights[]
+}
+
+model Forecast {
+  id             String    @id @default(cuid())
+  userId         String
+  question       String
+  domain         String
+  newsWindow     Int       @default(14)
+  probability    Float
+  confidenceLow  Float
+  confidenceHigh Float
+  outsideView    Float
+  insideView     Float
+  blendRatio     String
+  factors        String
+  outcome        Int?
+  brierScore     Float?
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+  user           User      @relation(fields: [userId], references: [id])
+}
+
+model UserWeights {
+  id      String @id @default(cuid())
+  userId  String
+  domain  String
+  weights String
+  user    User   @relation(fields: [userId], references: [id])
+  @@unique([userId, domain])
+}

@@ -1,0 +1,25 @@
+# deps
+/node_modules
+
+# next
+/.next/
+/out/
+
+# production
+/build
+
+# env files — never commit secrets
+.env
+.env.local
+.env.production
+.env*.local
+
+# prisma
+/prisma/dev.db
+/prisma/dev.db-journal
+
+# misc
+.DS_Store
+*.pem
+/coverage
+/.vercel
