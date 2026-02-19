@@ -54,6 +54,7 @@ export default function ForecastsPage() {
   const [domainFilter, setDomainFilter] = useState('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [resolvingId, setResolvingId] = useState<string | null>(null)
+  const [datasetModal, setDatasetModal] = useState<any | null>(null)
 
   useEffect(() => {
     const stored = localStorage.getItem('forecastiq_user')
@@ -218,7 +219,10 @@ export default function ForecastsPage() {
 
                         {/* Outside view / Base rate box */}
                         <div className="bg-cyan-950/30 border border-cyan-900/40 rounded-xl p-4">
-                          <div className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-3">📐 Outside View — Base Rate Calculation</div>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="text-xs font-semibold text-cyan-400 uppercase tracking-wider">📐 Outside View — Base Rate Calculation</div>
+                            {(() => { try { const d = JSON.parse((f as any).baseRateDataset || 'null'); return d ? <button onClick={() => setDatasetModal(d)} className="text-xs text-cyan-600 hover:text-cyan-400 underline">View Dataset →</button> : null } catch { return null } })()}
+                          </div>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                             <div>
                               <div className="text-xs text-slate-500 mb-1">Reference Class</div>
@@ -339,6 +343,50 @@ export default function ForecastsPage() {
           </div>
         )}
       </div>
+
+      {datasetModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDatasetModal(null)}>
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 sticky top-0 bg-slate-900">
+              <div className="text-sm font-bold text-white">📐 Dataset Reference — Outside View</div>
+              <button onClick={() => setDatasetModal(null)} className="text-slate-500 hover:text-white text-xl transition">✕</button>
+            </div>
+            <div className="px-6 py-5 space-y-5">
+              <div><div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">What This Measures</div><p className="text-sm text-slate-300 leading-relaxed">{datasetModal.description}</p></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-800 rounded-lg p-3"><div className="text-xs text-slate-500 mb-1">Sample Size</div><div className="text-sm text-white font-medium">{datasetModal.sampleSize}</div></div>
+                <div className="bg-slate-800 rounded-lg p-3"><div className="text-xs text-slate-500 mb-1">Time Period</div><div className="text-sm text-white font-medium">{datasetModal.timePeriod}</div></div>
+                <div className="bg-slate-800 rounded-lg p-3 col-span-2"><div className="text-xs text-slate-500 mb-1">Geographic Scope</div><div className="text-sm text-white">{datasetModal.geographicScope}</div></div>
+              </div>
+              <div><div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Methodology</div><p className="text-sm text-slate-400 leading-relaxed">{datasetModal.methodology}</p></div>
+              <div>
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Key Studies</div>
+                <div className="space-y-2">{datasetModal.keyStudies?.map((s: any, i: number) => (
+                  <div key={i} className="bg-slate-800/60 rounded-lg p-3">
+                    <div className="text-xs font-medium text-slate-200 mb-0.5">"{s.title}" — {s.authors} ({s.year})</div>
+                    <div className="text-xs text-slate-400">{s.finding}</div>
+                  </div>
+                ))}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Historical Examples</div>
+                <div className="space-y-1.5">{datasetModal.historicalExamples?.map((ex: any, i: number) => (
+                  <div key={i} className="flex items-start gap-3 text-xs">
+                    <span className="text-slate-400 flex-1">{ex.event}</span>
+                    <span className={`shrink-0 font-medium ${ex.outcome.startsWith('YES') ? 'text-green-400' : ex.outcome.startsWith('NO') ? 'text-red-400' : 'text-yellow-400'}`}>{ex.outcome}</span>
+                  </div>
+                ))}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Caveats</div>
+                <ul className="space-y-1">{datasetModal.caveats?.map((c: string, i: number) => (
+                  <li key={i} className="text-xs text-slate-400 flex items-start gap-2"><span className="text-yellow-600 shrink-0">⚠</span>{c}</li>
+                ))}</ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

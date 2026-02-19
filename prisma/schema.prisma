@@ -29,10 +29,11 @@ model Forecast {
   insideView     Float
   blendRatio     String
   factors        String
-  baseRateLabel  String   @default("")
-  baseRateSource String   @default("")
-  baseRateValue  Float    @default(0)
-  articleCount   Int      @default(0)
+  baseRateLabel   String   @default("")
+  baseRateSource  String   @default("")
+  baseRateValue   Float    @default(0)
+  baseRateDataset String   @default("")
+  articleCount    Int      @default(0)
   outcome        Int?
   brierScore     Float?
   createdAt      DateTime  @default(now())

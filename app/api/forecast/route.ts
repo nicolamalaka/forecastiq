@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
               baseRateLabel: finalData.baseRateLabel,
               baseRateSource: finalData.baseRateSource,
               baseRateValue: finalData.baseRateValue,
+              baseRateDataset: finalData.baseRateDataset ? JSON.stringify(finalData.baseRateDataset) : '',
               articleCount: finalData.articleCount,
             },
           })

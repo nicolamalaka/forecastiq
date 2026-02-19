@@ -1,5 +1,5 @@
 import { getSourceTier } from './sourceCredibility'
-import { detectBaseRate } from './baseRates'
+import { detectBaseRate, BaseRateEntry } from './baseRates'
 import { searchNews, SearchResult } from './braveSearch'
 
 export const DEFAULT_WEIGHTS: Record<string, Record<string, number>> = {
@@ -56,6 +56,7 @@ export interface ForecastResult {
   baseRateLabel: string
   baseRateSource: string
   baseRateValue: number
+  baseRateDataset: BaseRateEntry['dataset'] | null
   articleCount: number
 }
 
@@ -208,6 +209,7 @@ export async function* runForecast(
       blendRatio: `${Math.round(blendOutside * 100)}/${Math.round(blendInside * 100)}`,
       factors, baseRateLabel: baseRate.label, baseRateSource: baseRate.source,
       baseRateValue: baseRate.rate,
+      baseRateDataset: baseRate.dataset || null,
       articleCount: totalArticles,
     } as ForecastResult,
   }

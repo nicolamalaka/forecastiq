@@ -5,7 +5,13 @@ import Link from 'next/link'
 interface CalcStep { type: string; message: string; data?: any }
 interface Evidence { title: string; url: string; tier: number; tierLabel: string; excerpt: string }
 interface Factor { name: string; label: string; weight: number; rawScore: number; adjustedScore: number; evidence: Evidence[]; articleCount: number }
-interface ForecastResult { prob: number; low: number; high: number; factors: Factor[]; baseRateLabel: string; baseRateSource: string; baseRateValue: number; articleCount: number }
+interface DatasetInfo {
+  description: string; sampleSize: string; timePeriod: string; geographicScope: string
+  methodology: string; caveats: string[]
+  keyStudies: { title: string; authors: string; year: string; finding: string }[]
+  historicalExamples: { event: string; outcome: string }[]
+}
+interface ForecastResult { prob: number; low: number; high: number; factors: Factor[]; baseRateLabel: string; baseRateSource: string; baseRateValue: number; baseRateDataset: DatasetInfo | null; articleCount: number }
 interface SavedForecast { id: string; question: string; domain: string; probability: number; outcome: number | null; brierScore: number | null; createdAt: string }
 
 const PRESETS = [
@@ -74,6 +80,7 @@ export default function Home() {
   const [avgBrier, setAvgBrier] = useState<number | null>(null)
   const [resolvingId, setResolvingId] = useState<string | null>(null)
   const [savedWeightsNote, setSavedWeightsNote] = useState<string | null>(null)
+  const [datasetModal, setDatasetModal] = useState<DatasetInfo | null>(null)
   const logRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -138,7 +145,7 @@ export default function Home() {
         { type: 'final', message: `\n✓ RESULT: ${prob.toFixed(1)}% | 90% CI: ${Math.max(1, prob - 10).toFixed(0)}%–${Math.min(99, prob + 10).toFixed(0)}%` },
       ]
       setSteps(sportSteps)
-      setResult({ prob, low: Math.max(1, prob - 10), high: Math.min(99, prob + 10), factors: [], baseRateLabel: 'Manual sports entry', baseRateSource: 'User-entered factors', baseRateValue: 0.5, articleCount: 0 })
+      setResult({ prob, low: Math.max(1, prob - 10), high: Math.min(99, prob + 10), factors: [], baseRateLabel: 'Manual sports entry', baseRateSource: 'User-entered factors', baseRateValue: 0.5, baseRateDataset: null, articleCount: 0 })
       setLoading(false)
       return
     }
@@ -174,6 +181,7 @@ export default function Home() {
               baseRateLabel: d.baseRateLabel,
               baseRateSource: d.baseRateSource,
               baseRateValue: d.baseRateValue,
+              baseRateDataset: d.baseRateDataset || null,
               articleCount: d.articleCount,
             })
             if (userId) loadForecasts(userId)
@@ -383,7 +391,15 @@ export default function Home() {
                 <div className="text-xs text-slate-500 mb-3">90% CI: {result.low.toFixed(0)}% – {result.high.toFixed(0)}%</div>
                 {result.baseRateLabel && (
                   <div className="bg-cyan-950/30 border border-cyan-900/30 rounded-lg p-2.5 mb-3 text-left">
-                    <div className="text-xs text-cyan-500 font-medium mb-1">📐 Outside View</div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-xs text-cyan-500 font-medium">📐 Outside View</div>
+                      {result.baseRateDataset && (
+                        <button onClick={() => setDatasetModal(result.baseRateDataset)}
+                          className="text-xs text-cyan-600 hover:text-cyan-400 underline transition">
+                          View Dataset →
+                        </button>
+                      )}
+                    </div>
                     <div className="text-xs text-slate-300 font-medium">{result.baseRateLabel}</div>
                     <div className="text-xs text-slate-500 mt-0.5">{result.baseRateSource}</div>
                     <div className="text-xs text-cyan-400 font-bold mt-1">Base rate: {(result.baseRateValue * 100).toFixed(0)}%</div>
@@ -456,6 +472,80 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {/* Dataset Modal */}
+      {datasetModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDatasetModal(null)}>
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 sticky top-0 bg-slate-900">
+              <div className="text-sm font-bold text-white">📐 Dataset Reference — Outside View</div>
+              <button onClick={() => setDatasetModal(null)} className="text-slate-500 hover:text-white text-xl leading-none transition">✕</button>
+            </div>
+            <div className="px-6 py-5 space-y-5">
+              {/* Description */}
+              <div>
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">What This Measures</div>
+                <p className="text-sm text-slate-300 leading-relaxed">{datasetModal.description}</p>
+              </div>
+              {/* Stats grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-800 rounded-lg p-3">
+                  <div className="text-xs text-slate-500 mb-1">Sample Size</div>
+                  <div className="text-sm text-white font-medium">{datasetModal.sampleSize}</div>
+                </div>
+                <div className="bg-slate-800 rounded-lg p-3">
+                  <div className="text-xs text-slate-500 mb-1">Time Period</div>
+                  <div className="text-sm text-white font-medium">{datasetModal.timePeriod}</div>
+                </div>
+                <div className="bg-slate-800 rounded-lg p-3 col-span-2">
+                  <div className="text-xs text-slate-500 mb-1">Geographic Scope</div>
+                  <div className="text-sm text-white font-medium">{datasetModal.geographicScope}</div>
+                </div>
+              </div>
+              {/* Methodology */}
+              <div>
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Methodology</div>
+                <p className="text-sm text-slate-400 leading-relaxed">{datasetModal.methodology}</p>
+              </div>
+              {/* Key Studies */}
+              <div>
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Key Studies</div>
+                <div className="space-y-2">
+                  {datasetModal.keyStudies.map((s, i) => (
+                    <div key={i} className="bg-slate-800/60 rounded-lg p-3">
+                      <div className="text-xs font-medium text-slate-200 mb-0.5">"{s.title}" — {s.authors} ({s.year})</div>
+                      <div className="text-xs text-slate-400">{s.finding}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Historical Examples */}
+              <div>
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Historical Examples</div>
+                <div className="space-y-1.5">
+                  {datasetModal.historicalExamples.map((ex, i) => (
+                    <div key={i} className="flex items-start gap-3 text-xs">
+                      <span className="text-slate-400 flex-1">{ex.event}</span>
+                      <span className={`shrink-0 font-medium ${ex.outcome.startsWith('YES') ? 'text-green-400' : ex.outcome.startsWith('NO') ? 'text-red-400' : 'text-yellow-400'}`}>{ex.outcome}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Caveats */}
+              <div>
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Caveats & Limitations</div>
+                <ul className="space-y-1">
+                  {datasetModal.caveats.map((c, i) => (
+                    <li key={i} className="text-xs text-slate-400 flex items-start gap-2">
+                      <span className="text-yellow-600 shrink-0 mt-0.5">⚠</span>{c}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
