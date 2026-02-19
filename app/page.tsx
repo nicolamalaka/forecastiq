@@ -205,43 +205,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-slate-200">
       {/* Header */}
-      <header className="border-b border-slate-800/60 px-6 py-3 flex items-center justify-between backdrop-blur">
-        <div className="flex items-center gap-3">
-          <span className="text-xl font-bold text-white tracking-tight">⚡ ForecastIQ</span>
-          <span className="text-slate-600 text-xs hidden sm:block">Superforecasting Platform · Tetlock Method</span>
-        </div>
-        <nav className="hidden md:flex items-center gap-1">
-          <Link href="/" className="text-sm text-white bg-slate-800 px-3 py-1.5 rounded-lg">Forecast</Link>
-          <Link href="/forecasts" className="text-sm text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition">History</Link>
-          <Link href="/community" className="text-sm text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition">Community</Link>
-          <Link href="/weights" className="text-sm text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition">Weights</Link>
-          <Link href="/profile" className="text-sm text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition">Profile</Link>
-        </nav>
-        <div className="flex items-center gap-3">
-          {!userId ? (
-            <div className="flex gap-2">
-              <input
-                value={username} onChange={e => setUsername(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && login()}
-                placeholder="Username to track forecasts"
-                className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-slate-500 w-52 focus:outline-none focus:border-blue-500"
-              />
-              <button onClick={login} className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-1.5 rounded-lg transition font-medium">Start →</button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 text-sm">
-              <span className="text-slate-400">👤 <span className="text-white">{username}</span></span>
-              {avgBrier !== null && (
-                <span className="bg-slate-800 px-2 py-1 rounded text-xs text-slate-400">
-                  Brier: <span className={avgBrier < 0.15 ? 'text-green-400' : avgBrier < 0.25 ? 'text-yellow-400' : 'text-red-400'}>{avgBrier.toFixed(3)}</span>
-                </span>
-              )}
-              <span className="text-slate-600 text-xs">{forecasts.length} forecasts</span>
-            </div>
-          )}
-        </div>
-      </header>
-
       <div className="max-w-[1400px] mx-auto px-4 py-5 grid grid-cols-1 lg:grid-cols-[320px_1fr_320px] gap-4">
 
         {/* LEFT: Input */}
