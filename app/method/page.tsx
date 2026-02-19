@@ -239,6 +239,7 @@ export default function MethodPage() {
               { tip: 'Use specific numbers', detail: 'Say 63%, not "probably." Vague language hides bad thinking. Exact numbers force you to commit.' },
               { tip: 'Update when new information arrives', detail: 'Run the forecast again with a fresh news window as events evolve. Small updates beat big flip-flops.' },
               { tip: 'Resolve your forecasts', detail: 'Your Brier score only improves if you mark outcomes. Don\'t forecast and forget — close the loop.' },
+              { tip: 'Use "My Reference Class" for niche topics', detail: 'If your question doesn\'t match a standard category, type your own reference class. The app fires a 9-query search battery across RAND, Brookings, UCDP, SIPRI, Metaculus, and academic databases — no date limit — to estimate a base rate from real data.' },
               { tip: 'Compare with the community', detail: 'Check the Community page to see how others have forecasted the same type of question. Learn from superforecasters.' },
               { tip: 'Customise weights for your domain', detail: 'If you\'re an expert in economics, weight the economic indicator factor higher. Your domain knowledge should be reflected in your weights.' },
             ].map((t, i) => (

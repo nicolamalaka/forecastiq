@@ -98,61 +98,153 @@ export interface BaseRateOptions {
   manualSource: string
 }
 
+// High-authority academic/institutional domains for base rate research
+const ACADEMIC_SOURCES = [
+  'jstor.org', 'scholar.google.com', 'researchgate.net', 'ssrn.com',
+  'pubmed.ncbi.nlm.nih.gov', 'arxiv.org', 'semanticscholar.org',
+  'cambridge.org', 'oxfordacademic.com', 'springer.com', 'wiley.com',
+  'tandfonline.com', 'sagepub.com', 'sciencedirect.com',
+  // Policy & IR databases
+  'ucdp.uu.se', 'correlatesofwar.org', 'systemicpeace.org',
+  'prio.org', 'sipri.org', 'iiss.org', 'rand.org',
+  'brookings.edu', 'cfr.org', 'chathamhouse.org', 'crisisgroup.org',
+  'freedomhouse.org', 'transparency.org', 'v-dem.net',
+  'worldbank.org', 'imf.org', 'oecd.org', 'un.org',
+  'cia.gov', 'state.gov', 'nato.int',
+  // Good Judgment / forecasting
+  'goodjudgment.com', 'metaculus.com', 'polymarket.com',
+  'gjopen.com', 'tetlock.com', 'forecastingresearch.org',
+]
+
+function getAcademicTier(url: string): number {
+  try {
+    const domain = new URL(url).hostname.replace('www.', '')
+    if (ACADEMIC_SOURCES.includes(domain)) return 1.5
+    return getSourceTier(url)
+  } catch { return 0.5 }
+}
+
 async function fetchCustomBaseRate(
   referenceClass: string,
-  newsWindow: number
-): Promise<{ rate: number; source: string; reasoning: string }> {
-  // Search for historical frequency of this reference class
-  const queries = [
-    `${referenceClass} historical frequency base rate percentage`,
-    `how often does "${referenceClass}" happen statistics`,
-    `${referenceClass} probability historical data`,
+): Promise<{ rate: number; source: string; reasoning: string; sourcesUsed: string[] }> {
+
+  // Comprehensive query battery — no freshness filter (all historical)
+  // Each query targets a different angle: academic, statistical, institutional, forecasting
+  const queryBattery = [
+    // Academic / statistical
+    `"${referenceClass}" historical frequency percentage statistics dataset`,
+    `${referenceClass} base rate probability academic study research`,
+    `${referenceClass} how often occurs empirical evidence data`,
+    // Policy databases
+    `${referenceClass} dataset political science UCDP COW SIPRI frequency`,
+    `${referenceClass} site:rand.org OR site:brookings.edu OR site:cfr.org probability`,
+    // Forecasting platforms
+    `${referenceClass} site:metaculus.com OR site:gjopen.com base rate resolution`,
+    `${referenceClass} prediction market historical resolution rate frequency`,
+    // Wikipedia / encyclopedic
+    `${referenceClass} wikipedia statistics occurrence rate`,
+    // General quantitative
+    `${referenceClass} percent of cases proportion historical record`,
   ]
 
-  let allResults: SearchResult[] = []
-  for (const q of queries) {
-    const r = await searchNews(q, Math.max(newsWindow, 90))
-    allResults = [...allResults, ...r]
+  const allResults: SearchResult[] = []
+  const seenUrls = new Set<string>()
+
+  // Fire all queries without freshness constraints (use 'py' = past year as minimum,
+  // but Brave also returns older indexed content for academic queries)
+  for (const q of queryBattery) {
+    try {
+      // Use 'py' freshness for news queries but pass no freshness for academic searches
+      const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=8&search_lang=en`
+      const res = await fetch(url, {
+        headers: { 'Accept': 'application/json', 'X-Subscription-Token': process.env.BRAVE_API_KEY || '' }
+      })
+      if (!res.ok) continue
+      const data = await res.json()
+      const results: SearchResult[] = (data.web?.results || []).map((r: any) => ({
+        title: r.title || '', url: r.url || '',
+        description: r.extra_snippets?.[0] || r.description || '',
+        published: r.page_age || '',
+      }))
+      for (const r of results) {
+        if (!seenUrls.has(r.url)) { seenUrls.add(r.url); allResults.push(r) }
+      }
+    } catch { continue }
   }
 
-  const unique = allResults
-    .filter((r, i, a) => a.findIndex(x => x.url === r.url) === i)
-    .slice(0, 8)
-
-  if (unique.length === 0) {
-    return { rate: 0.45, source: 'No data found — using GJP generic baseline', reasoning: 'Could not find historical frequency data for this reference class. Defaulted to 45% generic baseline.' }
+  if (allResults.length === 0) {
+    return {
+      rate: 0.45, sourcesUsed: [],
+      source: 'No sources found — using GJP generic baseline (45%)',
+      reasoning: 'Exhaustive search returned no results for this reference class. Falling back to Good Judgment Project generic baseline of 45%.',
+    }
   }
 
-  // Extract percentage mentions from snippets
-  const combined = unique.map(r => `${r.title} ${r.description}`).join(' ')
-  const percentages: number[] = []
-  const matches = combined.match(/(\d+(?:\.\d+)?)\s*(?:%|percent|per cent)/gi) || []
-  for (const m of matches) {
-    const val = parseFloat(m)
-    if (val > 0 && val < 100) percentages.push(val)
+  // Weight each percentage mention by its source credibility tier
+  interface WeightedPct { value: number; weight: number; source: string }
+  const weightedPcts: WeightedPct[] = []
+
+  for (const r of allResults) {
+    const tier = getAcademicTier(r.url)
+    const text = `${r.title} ${r.description}`
+    // Match patterns like "18%", "18 percent", "18 per cent", "0.18 probability"
+    const pctMatches = text.match(/(\d+(?:\.\d+)?)\s*(?:%|percent|per cent)/gi) || []
+    const probMatches = text.match(/0\.\d+\s*(?:probability|rate|frequency)/gi) || []
+
+    for (const m of pctMatches) {
+      const val = parseFloat(m)
+      if (val > 0.5 && val < 99.5) {
+        weightedPcts.push({ value: val, weight: tier, source: r.url })
+      }
+    }
+    for (const m of probMatches) {
+      const val = parseFloat(m) * 100
+      if (val > 0.5 && val < 99.5) {
+        weightedPcts.push({ value: val, weight: tier * 1.2, source: r.url }) // prob statements get boost
+      }
+    }
   }
 
   let rate = 0.45
-  let reasoning = 'Used generic 45% baseline — no clear percentage found in search results.'
-
-  if (percentages.length > 0) {
-    // Remove outliers, take median
-    const sorted = percentages.sort((a, b) => a - b)
-    const mid = Math.floor(sorted.length / 2)
-    const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]
-    rate = Math.max(0.01, Math.min(0.99, median / 100))
-    reasoning = `Found ${percentages.length} percentage references in ${unique.length} articles. Median: ${median.toFixed(1)}%.`
-  }
-
-  const topSources = unique.slice(0, 3).map(r => {
+  let reasoning = ''
+  const sourcesUsed = [...new Set(allResults.slice(0, 6).map(r => {
     try { return new URL(r.url).hostname.replace('www.', '') } catch { return r.url }
-  }).join(', ')
+  }))]
 
-  return {
-    rate,
-    source: `Auto-searched from: ${topSources}`,
-    reasoning,
+  if (weightedPcts.length === 0) {
+    reasoning = `Searched ${allResults.length} sources across academic, policy, and forecasting databases. No explicit percentage figures found. Using 45% generic baseline.`
+  } else {
+    // Weighted median — sort by value, find median weighted by tier
+    const sorted = weightedPcts.sort((a, b) => a.value - b.value)
+    const totalWeight = sorted.reduce((s, p) => s + p.weight, 0)
+    let cumWeight = 0
+    let weightedMedian = sorted[0].value
+    for (const p of sorted) {
+      cumWeight += p.weight
+      if (cumWeight >= totalWeight / 2) { weightedMedian = p.value; break }
+    }
+
+    // Confidence: more sources + higher tiers = tighter estimate
+    const avgTier = weightedPcts.reduce((s, p) => s + p.weight, 0) / weightedPcts.length
+    const confidence = Math.min(1, (weightedPcts.length / 10) * avgTier)
+
+    rate = Math.max(0.01, Math.min(0.99, weightedMedian / 100))
+
+    const academicHits = allResults.filter(r => getAcademicTier(r.url) >= 1.5).length
+    reasoning = `Searched ${allResults.length} sources (${academicHits} academic/institutional). ` +
+      `Found ${weightedPcts.length} statistical references. ` +
+      `Tier-weighted median: ${weightedMedian.toFixed(1)}%. ` +
+      `Confidence: ${(confidence * 100).toFixed(0)}% (based on source quality & volume).`
   }
+
+  const topSources = allResults
+    .sort((a, b) => getAcademicTier(b.url) - getAcademicTier(a.url))
+    .slice(0, 5)
+    .map(r => { try { return new URL(r.url).hostname.replace('www.', '') } catch { return '' } })
+    .filter(Boolean)
+    .join(', ')
+
+  return { rate, source: `Sources: ${topSources}`, reasoning, sourcesUsed }
 }
 
 export async function* runForecast(
@@ -252,39 +344,44 @@ export async function* runForecast(
   } else if (mode === 'custom-class') {
     // Mode 2: user provides class, app fetches rate
     const className = baseRateOptions?.customClass || question
-    yield { type: 'blend', message: `Mode: CUSTOM CLASS — searching for historical frequency...` }
-    yield { type: 'search', message: `Searching: historical base rate for "${className}"...` }
-    const fetched = await fetchCustomBaseRate(className, newsWindow)
+    yield { type: 'blend', message: `Mode: CUSTOM CLASS — exhaustive search across academic & policy databases` }
+    yield { type: 'search', message: `Firing 9-query battery for "${className}" (no date limit)...` }
+    yield { type: 'search', message: `  Targeting: RAND, Brookings, CFR, UCDP, SIPRI, Metaculus, SSRN, Wikipedia + general` }
+    const fetched = await fetchCustomBaseRate(className)
     customReasoning = fetched.reasoning
+    if (fetched.sourcesUsed.length > 0) {
+      yield { type: 'search', message: `  Sources found: ${fetched.sourcesUsed.slice(0, 6).join(', ')}` }
+    }
     baseRate = {
       rate: fetched.rate,
       label: className,
       source: fetched.source,
       dataset: {
-        description: `Custom reference class provided by forecaster: "${className}". Base rate estimated from web search.`,
-        sampleSize: 'Estimated from search results',
-        timePeriod: `Last ${newsWindow}–90 days`,
-        geographicScope: 'Web search results',
+        description: `Custom reference class: "${className}". Base rate estimated via exhaustive multi-source search across academic, policy, and forecasting databases.`,
+        sampleSize: 'Aggregated from web search results (no date limit)',
+        timePeriod: 'All available indexed content',
+        geographicScope: 'Global — web search results across academic & policy sources',
         methodology: fetched.reasoning,
         caveats: [
-          'Base rate was estimated by searching the web for historical frequency data.',
-          'Verify this estimate against authoritative datasets for high-stakes forecasts.',
+          'Base rate estimated by searching academic papers, policy databases, and forecasting platforms.',
+          'Tier-weighted median used — academic/institutional sources weighted 3× higher than general news.',
+          'Verify against authoritative datasets for high-stakes forecasts.',
           'Auto-estimated rates carry more uncertainty than curated academic base rates.',
         ],
         keyStudies: [],
-        historicalExamples: [],
+        historicalExamples: fetched.sourcesUsed.map(s => ({ event: s, outcome: 'Source used in estimation' })),
       }
     }
     yield { type: 'blend', message: `Reference class: "${baseRate.label}"` }
     yield { type: 'blend', message: `Estimated base rate: ${(baseRate.rate * 100).toFixed(1)}%` }
     yield { type: 'blend', message: `Reasoning: ${customReasoning}` }
-    yield { type: 'blend', message: `Source: ${baseRate.source}` }
   } else {
-    // Mode 1: fully automatic
+    // Mode 1: fully automatic — uses curated academic dataset library
     baseRate = detectBaseRate(question, preset)
-    yield { type: 'blend', message: `Mode: AUTO — matched reference class from question` }
+    yield { type: 'blend', message: `Mode: AUTO — matched to curated academic dataset library` }
     yield { type: 'blend', message: `Reference class: "${baseRate.label}"` }
     yield { type: 'blend', message: `Dataset: ${baseRate.source}` }
+    yield { type: 'blend', message: `Coverage: ${baseRate.dataset?.sampleSize || '—'} | ${baseRate.dataset?.timePeriod || '—'}` }
   }
 
   const outsideViewPct = baseRate.rate * 100
