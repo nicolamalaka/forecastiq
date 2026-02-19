@@ -5,7 +5,7 @@ import Link from 'next/link'
 interface CalcStep { type: string; message: string; data?: any }
 interface Evidence { title: string; url: string; tier: number; tierLabel: string; excerpt: string }
 interface Factor { name: string; label: string; weight: number; rawScore: number; adjustedScore: number; evidence: Evidence[]; articleCount: number }
-interface ForecastResult { prob: number; low: number; high: number; factors: Factor[]; baseRateLabel: string; articleCount: number }
+interface ForecastResult { prob: number; low: number; high: number; factors: Factor[]; baseRateLabel: string; baseRateSource: string; baseRateValue: number; articleCount: number }
 interface SavedForecast { id: string; question: string; domain: string; probability: number; outcome: number | null; brierScore: number | null; createdAt: string }
 
 const PRESETS = [
@@ -138,7 +138,7 @@ export default function Home() {
         { type: 'final', message: `\n✓ RESULT: ${prob.toFixed(1)}% | 90% CI: ${Math.max(1, prob - 10).toFixed(0)}%–${Math.min(99, prob + 10).toFixed(0)}%` },
       ]
       setSteps(sportSteps)
-      setResult({ prob, low: Math.max(1, prob - 10), high: Math.min(99, prob + 10), factors: [], baseRateLabel: 'Manual sports entry', articleCount: 0 })
+      setResult({ prob, low: Math.max(1, prob - 10), high: Math.min(99, prob + 10), factors: [], baseRateLabel: 'Manual sports entry', baseRateSource: 'User-entered factors', baseRateValue: 0.5, articleCount: 0 })
       setLoading(false)
       return
     }
@@ -172,6 +172,8 @@ export default function Home() {
               high: d.confidenceHigh,
               factors: d.factors || [],
               baseRateLabel: d.baseRateLabel,
+              baseRateSource: d.baseRateSource,
+              baseRateValue: d.baseRateValue,
               articleCount: d.articleCount,
             })
             if (userId) loadForecasts(userId)
@@ -380,7 +382,12 @@ export default function Home() {
                 </div>
                 <div className="text-xs text-slate-500 mb-3">90% CI: {result.low.toFixed(0)}% – {result.high.toFixed(0)}%</div>
                 {result.baseRateLabel && (
-                  <div className="text-xs text-slate-600 mb-3">Base rate: {result.baseRateLabel}</div>
+                  <div className="bg-cyan-950/30 border border-cyan-900/30 rounded-lg p-2.5 mb-3 text-left">
+                    <div className="text-xs text-cyan-500 font-medium mb-1">📐 Outside View</div>
+                    <div className="text-xs text-slate-300 font-medium">{result.baseRateLabel}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{result.baseRateSource}</div>
+                    <div className="text-xs text-cyan-400 font-bold mt-1">Base rate: {(result.baseRateValue * 100).toFixed(0)}%</div>
+                  </div>
                 )}
                 <div className="w-full bg-slate-800 rounded-full h-2 mb-4">
                   <div className="h-2 rounded-full transition-all duration-1000" style={{ width: `${result.prob}%`, backgroundColor: probColor(result.prob) }} />

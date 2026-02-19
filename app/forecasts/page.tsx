@@ -2,6 +2,16 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
+interface FactorResult {
+  name: string
+  label: string
+  weight: number
+  rawScore: number
+  adjustedScore: number
+  articleCount: number
+  evidence: { title: string; url: string; tier: number; tierLabel: string; excerpt: string }[]
+}
+
 interface Forecast {
   id: string
   question: string
@@ -12,6 +22,11 @@ interface Forecast {
   outsideView: number
   insideView: number
   blendRatio: string
+  factors: string
+  baseRateLabel: string
+  baseRateSource: string
+  baseRateValue: number
+  articleCount: number
   outcome: number | null
   brierScore: number | null
   createdAt: string
@@ -174,68 +189,150 @@ export default function ForecastsPage() {
                     </div>
                   </div>
 
-                  {isExpanded && (
-                    <div className="border-t border-slate-800 p-4">
-                      {/* Stats grid */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                        <div className="bg-slate-800/60 rounded-lg p-3 text-center">
-                          <div className="text-xs text-slate-500 mb-1">Final Probability</div>
-                          <div className="text-lg font-bold" style={{ color: probColor(f.probability) }}>{(f.probability * 100).toFixed(1)}%</div>
-                        </div>
-                        <div className="bg-slate-800/60 rounded-lg p-3 text-center">
-                          <div className="text-xs text-slate-500 mb-1">90% CI</div>
-                          <div className="text-sm font-medium text-slate-300">{(f.confidenceLow * 100).toFixed(0)}–{(f.confidenceHigh * 100).toFixed(0)}%</div>
-                        </div>
-                        <div className="bg-slate-800/60 rounded-lg p-3 text-center">
-                          <div className="text-xs text-slate-500 mb-1">Outside View</div>
-                          <div className="text-sm font-medium text-cyan-400">{(f.outsideView * 100).toFixed(1)}%</div>
-                        </div>
-                        <div className="bg-slate-800/60 rounded-lg p-3 text-center">
-                          <div className="text-xs text-slate-500 mb-1">Inside View</div>
-                          <div className="text-sm font-medium text-purple-400">{(f.insideView * 100).toFixed(1)}%</div>
-                        </div>
-                      </div>
+                  {isExpanded && (() => {
+                    let parsedFactors: FactorResult[] = []
+                    try { parsedFactors = JSON.parse(f.factors || '[]') } catch {}
+                    const [blendOut, blendIn] = (f.blendRatio || '50/50').split('/').map(Number)
+                    return (
+                      <div className="border-t border-slate-800 p-4 space-y-5">
 
-                      {/* Blend bar */}
-                      <div className="mb-4">
-                        <div className="text-xs text-slate-500 mb-1.5">Blend: {f.blendRatio} (outside/inside)</div>
-                        <div className="flex h-2 rounded-full overflow-hidden">
-                          {f.blendRatio && (() => {
-                            const [o, i] = f.blendRatio.split('/').map(Number)
-                            return <>
-                              <div className="bg-cyan-600" style={{ width: `${o}%` }} />
-                              <div className="bg-purple-600" style={{ width: `${i}%` }} />
-                            </>
-                          })()}
+                        {/* Summary row */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+                            <div className="text-xs text-slate-500 mb-1">Final Probability</div>
+                            <div className="text-lg font-bold" style={{ color: probColor(f.probability) }}>{(f.probability * 100).toFixed(1)}%</div>
+                          </div>
+                          <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+                            <div className="text-xs text-slate-500 mb-1">90% CI</div>
+                            <div className="text-sm font-medium text-slate-300">{(f.confidenceLow * 100).toFixed(0)}–{(f.confidenceHigh * 100).toFixed(0)}%</div>
+                          </div>
+                          <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+                            <div className="text-xs text-slate-500 mb-1">Outside View</div>
+                            <div className="text-sm font-bold text-cyan-400">{(f.outsideView * 100).toFixed(1)}%</div>
+                          </div>
+                          <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+                            <div className="text-xs text-slate-500 mb-1">Inside View</div>
+                            <div className="text-sm font-bold text-purple-400">{(f.insideView * 100).toFixed(1)}%</div>
+                          </div>
                         </div>
-                        <div className="flex justify-between text-xs text-slate-600 mt-1">
-                          <span>Outside (base rate)</span><span>Inside (news evidence)</span>
-                        </div>
-                      </div>
 
-                      {/* Resolution */}
-                      {f.outcome === null && (
-                        <div className="flex items-center gap-3 pt-2">
-                          <span className="text-xs text-slate-500">Mark outcome:</span>
-                          <button onClick={() => resolve(f.id, 1)} disabled={resolvingId === f.id}
-                            className="text-xs bg-green-900/30 hover:bg-green-900/60 border border-green-800/40 text-green-400 px-4 py-1.5 rounded-lg transition">
-                            ✓ YES — it happened
-                          </button>
-                          <button onClick={() => resolve(f.id, 0)} disabled={resolvingId === f.id}
-                            className="text-xs bg-red-900/30 hover:bg-red-900/60 border border-red-800/40 text-red-400 px-4 py-1.5 rounded-lg transition">
-                            ✗ NO — it didn't happen
-                          </button>
+                        {/* Outside view / Base rate box */}
+                        <div className="bg-cyan-950/30 border border-cyan-900/40 rounded-xl p-4">
+                          <div className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-3">📐 Outside View — Base Rate Calculation</div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <div className="text-xs text-slate-500 mb-1">Reference Class</div>
+                              <div className="text-slate-200 font-medium">{f.baseRateLabel || '—'}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-slate-500 mb-1">Dataset / Source</div>
+                              <div className="text-slate-400">{f.baseRateSource || '—'}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-slate-500 mb-1">Historical Base Rate</div>
+                              <div className="text-cyan-400 font-bold text-xl">{((f.baseRateValue || f.outsideView) * 100).toFixed(0)}%</div>
+                            </div>
+                          </div>
+                          <div className="mt-3 text-xs text-slate-500 bg-slate-900/50 rounded-lg p-2.5">
+                            In situations matching the reference class <span className="text-slate-300">"{f.baseRateLabel}"</span>, this type of event has historically occurred approximately <span className="text-cyan-400 font-medium">{((f.baseRateValue || f.outsideView) * 100).toFixed(0)}%</span> of the time. This forms the Tetlock outside-view anchor before case-specific evidence is applied.
+                          </div>
                         </div>
-                      )}
-                      {f.brierScore !== null && (
-                        <div className="flex items-center gap-3 pt-2 text-xs text-slate-500">
-                          <span>Brier score: <span className={f.brierScore < 0.1 ? 'text-green-400' : f.brierScore < 0.25 ? 'text-yellow-400' : 'text-red-400'}>{f.brierScore.toFixed(4)}</span></span>
-                          <span>·</span>
-                          <span>Resolved: {new Date(f.resolvedAt!).toLocaleDateString()}</span>
+
+                        {/* Inside view — factor scores */}
+                        {parsedFactors.length > 0 && (
+                          <div className="bg-purple-950/20 border border-purple-900/30 rounded-xl p-4">
+                            <div className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3">🔍 Inside View — Factor Scores ({f.articleCount || 0} articles)</div>
+                            <div className="space-y-3">
+                              {parsedFactors.map((factor, fi) => {
+                                const contribution = (factor.weight / 100) * factor.adjustedScore
+                                return (
+                                  <details key={fi} className="group">
+                                    <summary className="cursor-pointer flex items-center justify-between py-1.5 text-xs hover:text-slate-200 transition">
+                                      <div className="flex items-center gap-3 flex-1">
+                                        <span className="text-slate-300 font-medium">{factor.label}</span>
+                                        <span className="text-slate-600">{factor.weight}% weight</span>
+                                      </div>
+                                      <div className="flex items-center gap-3 shrink-0 ml-3">
+                                        <span className="text-slate-500 font-mono">{factor.weight}% × {factor.adjustedScore.toFixed(2)} =</span>
+                                        <span className="text-yellow-400 font-bold font-mono">{contribution.toFixed(3)}</span>
+                                        <span className="text-slate-600 text-xs">{factor.articleCount}art ▼</span>
+                                      </div>
+                                    </summary>
+                                    <div className="pt-2 pl-3 space-y-1.5">
+                                      <div className="flex gap-4 text-xs text-slate-500 mb-2">
+                                        <span>Raw score: <span className="text-slate-300">{factor.rawScore.toFixed(1)}/10</span></span>
+                                        <span>Tier-adjusted: <span className="text-slate-300">{factor.adjustedScore.toFixed(2)}/10</span></span>
+                                        <span>Contribution: <span className="text-yellow-400">{contribution.toFixed(3)}</span></span>
+                                      </div>
+                                      {factor.evidence?.slice(0, 3).map((e, ei) => (
+                                        <div key={ei} className="bg-slate-800/50 rounded p-2 text-xs">
+                                          <a href={e.url} target="_blank" rel="noopener noreferrer"
+                                            className="text-blue-400 hover:underline line-clamp-1 font-medium">{e.title}</a>
+                                          {e.excerpt && <div className="text-slate-500 mt-1 line-clamp-1">{e.excerpt}</div>}
+                                          <div className="text-slate-600 mt-1">{e.tierLabel} · weight {e.tier?.toFixed(2)}</div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </details>
+                                )
+                              })}
+                              <div className="border-t border-purple-900/30 pt-2 flex justify-between text-xs">
+                                <span className="text-slate-500">Inside view total:</span>
+                                <span className="text-purple-400 font-bold">{(f.insideView * 100).toFixed(1)}%</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Blend calculation */}
+                        <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+                          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">⚖️ Blend Calculation</div>
+                          <div className="font-mono text-xs space-y-1 text-slate-400">
+                            <div>Outside view: <span className="text-cyan-400">{(f.outsideView * 100).toFixed(1)}%</span> × {blendOut/100} = <span className="text-cyan-400">{(f.outsideView * blendOut).toFixed(2)}%</span></div>
+                            <div>Inside view: &nbsp;<span className="text-purple-400">{(f.insideView * 100).toFixed(1)}%</span> × {blendIn/100} = <span className="text-purple-400">{(f.insideView * blendIn).toFixed(2)}%</span></div>
+                            <div className="border-t border-slate-700 pt-1 mt-1">
+                              Final = <span className="text-cyan-400">{(f.outsideView * blendOut).toFixed(2)}</span> + <span className="text-purple-400">{(f.insideView * blendIn).toFixed(2)}</span> = <span className="text-white font-bold text-sm">{(f.probability * 100).toFixed(1)}%</span>
+                            </div>
+                          </div>
+                          <div className="mt-3">
+                            <div className="flex h-2.5 rounded-full overflow-hidden">
+                              <div className="bg-cyan-600" style={{ width: `${blendOut}%` }} />
+                              <div className="bg-purple-600" style={{ width: `${blendIn}%` }} />
+                            </div>
+                            <div className="flex justify-between text-xs text-slate-600 mt-1">
+                              <span>← Outside / Base rate ({blendOut}%)</span>
+                              <span>Inside / News evidence ({blendIn}%) →</span>
+                            </div>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  )}
+
+                        {/* Resolution */}
+                        {f.outcome === null ? (
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-slate-500">Mark outcome:</span>
+                            <button onClick={() => resolve(f.id, 1)} disabled={resolvingId === f.id}
+                              className="text-xs bg-green-900/30 hover:bg-green-900/60 border border-green-800/40 text-green-400 px-4 py-1.5 rounded-lg transition">
+                              ✓ YES — it happened
+                            </button>
+                            <button onClick={() => resolve(f.id, 0)} disabled={resolvingId === f.id}
+                              className="text-xs bg-red-900/30 hover:bg-red-900/60 border border-red-800/40 text-red-400 px-4 py-1.5 rounded-lg transition">
+                              ✗ NO — it didn't happen
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-4 text-xs text-slate-500">
+                            <span>Outcome: <span className={f.outcome === 1 ? 'text-green-400 font-medium' : 'text-red-400 font-medium'}>{f.outcome === 1 ? 'YES' : 'NO'}</span></span>
+                            {f.brierScore !== null && <>
+                              <span>·</span>
+                              <span>Brier score: <span className={f.brierScore < 0.1 ? 'text-green-400' : f.brierScore < 0.25 ? 'text-yellow-400' : 'text-red-400'}>{f.brierScore.toFixed(4)}</span></span>
+                              <span>·</span>
+                              <span>Resolved: {new Date(f.resolvedAt!).toLocaleDateString()}</span>
+                            </>}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
               )
             })}

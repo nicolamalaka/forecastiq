@@ -48,6 +48,10 @@ export async function POST(req: NextRequest) {
               insideView: finalData.insideViewPct / 100,
               blendRatio: finalData.blendRatio,
               factors: JSON.stringify(finalData.factors),
+              baseRateLabel: finalData.baseRateLabel,
+              baseRateSource: finalData.baseRateSource,
+              baseRateValue: finalData.baseRateValue,
+              articleCount: finalData.articleCount,
             },
           })
           send({ type: 'saved', message: 'Forecast saved to your history.' })

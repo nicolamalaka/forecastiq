@@ -55,6 +55,7 @@ export interface ForecastResult {
   factors: FactorResult[]
   baseRateLabel: string
   baseRateSource: string
+  baseRateValue: number
   articleCount: number
 }
 
@@ -170,20 +171,34 @@ export async function* runForecast(
 
   const baseRate = detectBaseRate(question, preset)
   const outsideViewPct = baseRate.rate * 100
-  yield { type: 'blend', message: `\nReference class: "${baseRate.label}" → base rate ${outsideViewPct.toFixed(0)}%` }
-  yield { type: 'blend', message: `Source: ${baseRate.source}` }
+
+  yield { type: 'blend', message: `\n── Outside View (Base Rate) ─────────────────` }
+  yield { type: 'blend', message: `Reference class identified: "${baseRate.label}"` }
+  yield { type: 'blend', message: `Dataset source: ${baseRate.source}` }
+  yield { type: 'blend', message: `Historical base rate: ${outsideViewPct.toFixed(0)}%` }
+  yield { type: 'blend', message: `Interpretation: In situations matching this reference class,` }
+  yield { type: 'blend', message: `  the outcome has occurred ~${outsideViewPct.toFixed(0)}% of the time historically.` }
 
   const blendOutside = totalArticles >= 10 ? 0.35 : totalArticles >= 5 ? 0.45 : 0.55
   const blendInside = 1 - blendOutside
   const quality = totalArticles >= 10 ? 'HIGH' : totalArticles >= 5 ? 'MEDIUM' : 'LOW'
-  yield { type: 'blend', message: `News quality: ${quality} (${totalArticles} total articles) → blend ${Math.round(blendOutside * 100)}% outside / ${Math.round(blendInside * 100)}% inside` }
+
+  yield { type: 'blend', message: `\n── Blending ─────────────────────────────────` }
+  yield { type: 'blend', message: `News evidence quality: ${quality} (${totalArticles} articles found)` }
+  yield { type: 'blend', message: `Blend ratio: ${Math.round(blendOutside * 100)}% outside / ${Math.round(blendInside * 100)}% inside` }
+  yield { type: 'blend', message: `Rationale: ${totalArticles >= 10 ? 'Strong news coverage → trust inside view more (65%)' : totalArticles >= 5 ? 'Moderate coverage → balanced blend (55% inside)' : 'Limited coverage → lean on base rate more (55% outside)'}` }
 
   const finalPct = Math.max(1, Math.min(99, outsideViewPct * blendOutside + insideViewPct * blendInside))
   const margin = 6 + (1 - blendInside) * 12
   const confidenceLow = Math.max(1, finalPct - margin)
   const confidenceHigh = Math.min(99, finalPct + margin)
 
-  yield { type: 'blend', message: `\nFinal: (${outsideViewPct.toFixed(0)}% × ${blendOutside.toFixed(2)}) + (${insideViewPct.toFixed(1)}% × ${blendInside.toFixed(2)}) = ${finalPct.toFixed(1)}%` }
+  yield { type: 'blend', message: `\n── Final Calculation ────────────────────────` }
+  yield { type: 'blend', message: `Outside view: ${outsideViewPct.toFixed(1)}% × ${blendOutside.toFixed(2)} = ${(outsideViewPct * blendOutside).toFixed(2)}%` }
+  yield { type: 'blend', message: `Inside view:  ${insideViewPct.toFixed(1)}% × ${blendInside.toFixed(2)} = ${(insideViewPct * blendInside).toFixed(2)}%` }
+  yield { type: 'blend', message: `Sum: ${(outsideViewPct * blendOutside).toFixed(2)} + ${(insideViewPct * blendInside).toFixed(2)} = ${finalPct.toFixed(1)}%` }
+  yield { type: 'blend', message: `Confidence interval (90%): ±${margin.toFixed(1)}% → ${confidenceLow.toFixed(0)}%–${confidenceHigh.toFixed(0)}%` }
+
   yield {
     type: 'final',
     message: `\n✓ RESULT: ${finalPct.toFixed(1)}% | 90% CI: ${confidenceLow.toFixed(0)}%–${confidenceHigh.toFixed(0)}%`,
@@ -192,6 +207,7 @@ export async function* runForecast(
       outsideViewPct, insideViewPct,
       blendRatio: `${Math.round(blendOutside * 100)}/${Math.round(blendInside * 100)}`,
       factors, baseRateLabel: baseRate.label, baseRateSource: baseRate.source,
+      baseRateValue: baseRate.rate,
       articleCount: totalArticles,
     } as ForecastResult,
   }
