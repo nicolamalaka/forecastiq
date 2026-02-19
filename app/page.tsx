@@ -213,6 +213,7 @@ export default function Home() {
         <nav className="hidden md:flex items-center gap-1">
           <Link href="/" className="text-sm text-white bg-slate-800 px-3 py-1.5 rounded-lg">Forecast</Link>
           <Link href="/forecasts" className="text-sm text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition">History</Link>
+          <Link href="/community" className="text-sm text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition">Community</Link>
           <Link href="/weights" className="text-sm text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition">Weights</Link>
           <Link href="/profile" className="text-sm text-slate-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition">Profile</Link>
         </nav>
