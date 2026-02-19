@@ -60,12 +60,21 @@ export default function MethodPage() {
               </div>
             </div>
           </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 text-center">
-            <div className="text-sm text-slate-400 mb-3">The two views are then <span className="text-white font-medium">blended together</span> automatically:</div>
-            <div className="font-mono text-sm text-slate-300 bg-slate-800 rounded-lg p-3 inline-block">
-              Final % = (Outside View × blend weight) + (Inside View × blend weight)
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <div className="text-sm text-slate-400 mb-4 text-center">The two views are combined using this formula:</div>
+            <div className="font-mono text-sm text-slate-300 bg-slate-800 rounded-lg p-4 text-center mb-4">
+              Final % = <span className="text-cyan-400">(Outside View × 1)</span> + <span className="text-purple-400">(Factor₁ × w₁) + (Factor₂ × w₂) + …</span><br/>
+              <span className="text-slate-500 text-xs mt-2 block">÷ (number of inside factors + 1)</span>
             </div>
-            <p className="text-xs text-slate-500 mt-3">The blend ratio adjusts based on how much news was found — more evidence means we trust the inside view more.</p>
+            <div className="bg-slate-800/60 rounded-lg p-4 text-xs text-slate-400 space-y-2">
+              <div className="text-white font-medium mb-2">Example with 6 inside factors:</div>
+              <div><span className="text-cyan-400">Outside view (base rate):</span> 45% × 1 = 45.00</div>
+              <div><span className="text-purple-400">Factor 1 (Polling, 20% weight):</span> 70% × 0.20 = 14.00</div>
+              <div><span className="text-purple-400">Factor 2 (Stability, 20%):</span> 60% × 0.20 = 12.00</div>
+              <div className="text-slate-600">… + 4 more factors …</div>
+              <div className="border-t border-slate-700 pt-2 text-white">Sum ÷ 7 (6 factors + 1) = <span className="text-green-400 font-bold">Final Probability</span></div>
+            </div>
+            <p className="text-xs text-slate-500 mt-3 text-center">The outside view always counts as one full term. Each inside factor is weighted by how important it is.</p>
           </div>
         </section>
 

@@ -275,24 +275,15 @@ export default function ForecastsPage() {
 
                         {/* Blend calculation */}
                         <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
-                          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">⚖️ Blend Calculation</div>
+                          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">⚖️ Aggregation</div>
                           <div className="font-mono text-xs space-y-1 text-slate-400">
-                            <div>Outside view: <span className="text-cyan-400">{(f.outsideView * 100).toFixed(1)}%</span> × {blendOut/100} = <span className="text-cyan-400">{(f.outsideView * blendOut).toFixed(2)}%</span></div>
-                            <div>Inside view: &nbsp;<span className="text-purple-400">{(f.insideView * 100).toFixed(1)}%</span> × {blendIn/100} = <span className="text-purple-400">{(f.insideView * blendIn).toFixed(2)}%</span></div>
+                            <div><span className="text-cyan-400">Outside view:</span> {(f.outsideView * 100).toFixed(1)}% × 1 = <span className="text-cyan-400">{(f.outsideView * 100).toFixed(2)}</span></div>
+                            <div><span className="text-purple-400">Inside factors (weighted sum):</span> <span className="text-purple-400">{(f.insideView * parsedFactors.length).toFixed(2)}</span></div>
                             <div className="border-t border-slate-700 pt-1 mt-1">
-                              Final = <span className="text-cyan-400">{(f.outsideView * blendOut).toFixed(2)}</span> + <span className="text-purple-400">{(f.insideView * blendIn).toFixed(2)}</span> = <span className="text-white font-bold text-sm">{(f.probability * 100).toFixed(1)}%</span>
+                              ({(f.outsideView * 100).toFixed(2)} + {(f.insideView * parsedFactors.length).toFixed(2)}) ÷ {parsedFactors.length + 1} = <span className="text-white font-bold text-sm">{(f.probability * 100).toFixed(2)}%</span>
                             </div>
                           </div>
-                          <div className="mt-3">
-                            <div className="flex h-2.5 rounded-full overflow-hidden">
-                              <div className="bg-cyan-600" style={{ width: `${blendOut}%` }} />
-                              <div className="bg-purple-600" style={{ width: `${blendIn}%` }} />
-                            </div>
-                            <div className="flex justify-between text-xs text-slate-600 mt-1">
-                              <span>← Outside / Base rate ({blendOut}%)</span>
-                              <span>Inside / News evidence ({blendIn}%) →</span>
-                            </div>
-                          </div>
+                          <div className="mt-3 text-xs text-slate-600">{f.blendRatio}</div>
                         </div>
 
                         {/* Resolution */}

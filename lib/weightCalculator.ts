@@ -156,49 +156,57 @@ export async function* runForecast(
     factors.push({ name: factorKey, label, weight: w, rawScore, adjustedScore, evidence, articleCount: unique.length })
   }
 
-  yield { type: 'weight', message: `\nApplying weights:` }
-  let insideViewScore = 0
-  for (const f of factors) {
-    const contribution = (f.weight / 100) * f.adjustedScore
-    insideViewScore += contribution
-    yield {
-      type: 'weight',
-      message: `  ${f.label} (${f.weight}%) × ${f.adjustedScore.toFixed(2)} = ${contribution.toFixed(3)}`,
-    }
-  }
-
-  const insideViewPct = Math.max(1, Math.min(99, (insideViewScore / 10) * 100))
-  yield { type: 'weight', message: `\n  Inside view total: ${insideViewScore.toFixed(2)}/10 → ${insideViewPct.toFixed(1)}%` }
-
+  // ── Outside View ─────────────────────────────────────────────────────────
   const baseRate = detectBaseRate(question, preset)
   const outsideViewPct = baseRate.rate * 100
 
   yield { type: 'blend', message: `\n── Outside View (Base Rate) ─────────────────` }
-  yield { type: 'blend', message: `Reference class identified: "${baseRate.label}"` }
-  yield { type: 'blend', message: `Dataset source: ${baseRate.source}` }
-  yield { type: 'blend', message: `Historical base rate: ${outsideViewPct.toFixed(0)}%` }
-  yield { type: 'blend', message: `Interpretation: In situations matching this reference class,` }
-  yield { type: 'blend', message: `  the outcome has occurred ~${outsideViewPct.toFixed(0)}% of the time historically.` }
+  yield { type: 'blend', message: `Reference class: "${baseRate.label}"` }
+  yield { type: 'blend', message: `Dataset: ${baseRate.source}` }
+  yield { type: 'blend', message: `Base rate: ${outsideViewPct.toFixed(1)}% → outside view score: ${outsideViewPct.toFixed(1)}% (× 1.0 = ${outsideViewPct.toFixed(2)})` }
 
-  const blendOutside = totalArticles >= 10 ? 0.35 : totalArticles >= 5 ? 0.45 : 0.55
-  const blendInside = 1 - blendOutside
+  // ── Inside View — weighted factor scores ─────────────────────────────────
+  yield { type: 'weight', message: `\n── Inside View — Factor Scores ──────────────` }
+
+  const insideTerms: number[] = []
+  for (const f of factors) {
+    // Each inside factor: convert score to percentage (score/10 * 100), then × weight
+    const factorPct = (f.adjustedScore / 10) * 100
+    const weightedTerm = (f.weight / 100) * factorPct
+    insideTerms.push(weightedTerm)
+    yield {
+      type: 'weight',
+      message: `  ${f.label}: score ${f.adjustedScore.toFixed(2)}/10 → ${factorPct.toFixed(1)}% × ${f.weight}% weight = ${weightedTerm.toFixed(2)}`,
+    }
+  }
+
+  const insideWeightedSum = insideTerms.reduce((s, v) => s + v, 0)
+  yield { type: 'weight', message: `  Weighted inside sum: ${insideWeightedSum.toFixed(2)}%` }
+
+  // ── Final Aggregation ─────────────────────────────────────────────────────
+  // Formula: (outsideView × 1) + (each inside factor × weight) / (n_inside_factors + 1)
+  const nFactors = factors.length
+  const totalTerms = nFactors + 1  // inside factors + 1 for outside view
+  const numerator = outsideViewPct + insideWeightedSum
+  const finalPct = Math.max(1, Math.min(99, numerator / totalTerms))
+
+  yield { type: 'blend', message: `\n── Final Aggregation ────────────────────────` }
+  yield { type: 'blend', message: `Formula: (Outside × 1) + (Σ inside factors × weight) ÷ (${nFactors} factors + 1)` }
+  yield { type: 'blend', message: `Numerator: ${outsideViewPct.toFixed(2)} + ${insideWeightedSum.toFixed(2)} = ${numerator.toFixed(2)}` }
+  yield { type: 'blend', message: `Divisor: ${nFactors} inside factors + 1 outside = ${totalTerms}` }
+  yield { type: 'blend', message: `Final: ${numerator.toFixed(2)} ÷ ${totalTerms} = ${finalPct.toFixed(2)}%` }
+
+  // Confidence interval based on data quality
   const quality = totalArticles >= 10 ? 'HIGH' : totalArticles >= 5 ? 'MEDIUM' : 'LOW'
-
-  yield { type: 'blend', message: `\n── Blending ─────────────────────────────────` }
-  yield { type: 'blend', message: `News evidence quality: ${quality} (${totalArticles} articles found)` }
-  yield { type: 'blend', message: `Blend ratio: ${Math.round(blendOutside * 100)}% outside / ${Math.round(blendInside * 100)}% inside` }
-  yield { type: 'blend', message: `Rationale: ${totalArticles >= 10 ? 'Strong news coverage → trust inside view more (65%)' : totalArticles >= 5 ? 'Moderate coverage → balanced blend (55% inside)' : 'Limited coverage → lean on base rate more (55% outside)'}` }
-
-  const finalPct = Math.max(1, Math.min(99, outsideViewPct * blendOutside + insideViewPct * blendInside))
-  const margin = 6 + (1 - blendInside) * 12
+  const margin = quality === 'HIGH' ? 6 : quality === 'MEDIUM' ? 9 : 13
   const confidenceLow = Math.max(1, finalPct - margin)
   const confidenceHigh = Math.min(99, finalPct + margin)
+  yield { type: 'blend', message: `News quality: ${quality} (${totalArticles} articles) → CI margin ±${margin}%` }
+  yield { type: 'blend', message: `Confidence interval (90%): ${confidenceLow.toFixed(0)}% – ${confidenceHigh.toFixed(0)}%` }
 
-  yield { type: 'blend', message: `\n── Final Calculation ────────────────────────` }
-  yield { type: 'blend', message: `Outside view: ${outsideViewPct.toFixed(1)}% × ${blendOutside.toFixed(2)} = ${(outsideViewPct * blendOutside).toFixed(2)}%` }
-  yield { type: 'blend', message: `Inside view:  ${insideViewPct.toFixed(1)}% × ${blendInside.toFixed(2)} = ${(insideViewPct * blendInside).toFixed(2)}%` }
-  yield { type: 'blend', message: `Sum: ${(outsideViewPct * blendOutside).toFixed(2)} + ${(insideViewPct * blendInside).toFixed(2)} = ${finalPct.toFixed(1)}%` }
-  yield { type: 'blend', message: `Confidence interval (90%): ±${margin.toFixed(1)}% → ${confidenceLow.toFixed(0)}%–${confidenceHigh.toFixed(0)}%` }
+  // Store inside view as a simple average for display purposes
+  const insideViewPct = insideWeightedSum / nFactors
+  const blendRatio = `Outside:1 + Inside:${nFactors} / ${totalTerms}`
 
   yield {
     type: 'final',
@@ -206,7 +214,7 @@ export async function* runForecast(
     data: {
       finalPct, confidenceLow, confidenceHigh,
       outsideViewPct, insideViewPct,
-      blendRatio: `${Math.round(blendOutside * 100)}/${Math.round(blendInside * 100)}`,
+      blendRatio,
       factors, baseRateLabel: baseRate.label, baseRateSource: baseRate.source,
       baseRateValue: baseRate.rate,
       baseRateDataset: baseRate.dataset || null,

@@ -356,20 +356,13 @@ export default function CommunityPage() {
 
                               {/* Blend */}
                               <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
-                                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">⚖️ Blend</div>
-                                <div className="font-mono text-xs space-y-1 text-slate-400 mb-3">
-                                  <div>Outside: <span className="text-cyan-400">{(f.outsideView * 100).toFixed(1)}%</span> × {(blendOut/100).toFixed(2)} = <span className="text-cyan-400">{(f.outsideView * blendOut).toFixed(2)}%</span></div>
-                                  <div>Inside: &nbsp;<span className="text-purple-400">{(f.insideView * 100).toFixed(1)}%</span> × {(blendIn/100).toFixed(2)} = <span className="text-purple-400">{(f.insideView * blendIn).toFixed(2)}%</span></div>
-                                  <div className="border-t border-slate-700 pt-1">Final = <span className="text-white font-bold">{(f.probability * 100).toFixed(1)}%</span></div>
+                                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">⚖️ Aggregation</div>
+                                <div className="font-mono text-xs space-y-1 text-slate-400">
+                                  <div><span className="text-cyan-400">Outside view:</span> {(f.outsideView * 100).toFixed(1)}% × 1 = <span className="text-cyan-400">{(f.outsideView * 100).toFixed(2)}</span></div>
+                                  <div><span className="text-purple-400">Inside (weighted sum):</span> <span className="text-purple-400">{(f.insideView * parsedFactors.length).toFixed(2)}</span></div>
+                                  <div className="border-t border-slate-700 pt-1">({(f.outsideView * 100).toFixed(2)} + {(f.insideView * parsedFactors.length).toFixed(2)}) ÷ {parsedFactors.length + 1} = <span className="text-white font-bold">{(f.probability * 100).toFixed(2)}%</span></div>
                                 </div>
-                                <div className="flex h-2 rounded-full overflow-hidden">
-                                  <div className="bg-cyan-600" style={{ width: `${blendOut}%` }} />
-                                  <div className="bg-purple-600" style={{ width: `${blendIn}%` }} />
-                                </div>
-                                <div className="flex justify-between text-xs text-slate-600 mt-1">
-                                  <span>Outside ({blendOut}%)</span>
-                                  <span>Inside ({blendIn}%)</span>
-                                </div>
+                                <div className="mt-2 text-xs text-slate-600">{f.blendRatio}</div>
                               </div>
 
                               {/* Outcome */}
